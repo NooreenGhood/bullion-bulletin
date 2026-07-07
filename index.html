@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Bullion Bulletin</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+:root { --paper:#f4efe4; --ink:#1c1a16; --rule:#9c927c; --accent:#8a1c1c; --gold:#a07617;
+        --hit:#1d6b38; --miss:#8a1c1c; --partial:#a07617; --pending:#6b675e; --card:#fffdf6; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--paper); color:var(--ink);
+       font:15px/1.55 Georgia,'Times New Roman',serif; }
+.wrap { max-width:1060px; margin:0 auto; padding:24px 20px 60px; }
+.ribbon { position:sticky; top:0; z-index:50; background:repeating-linear-gradient(45deg,
+  #a07617, #a07617 14px, #8a6210 14px, #8a6210 28px); color:#fffdf6; text-align:center;
+  font:700 12px/1 'Courier New',monospace; letter-spacing:2px; padding:8px; }
+header.masthead { text-align:center; border-bottom:4px double var(--ink); padding-bottom:14px; }
+.masthead h1 { font:700 44px/1 Georgia,serif; letter-spacing:2px; margin:6px 0 2px; }
+.masthead .sub { font-variant:small-caps; letter-spacing:3px; color:var(--pending); }
+.masthead .issue-line { display:flex; justify-content:space-between; font-size:13px;
+  border-top:1px solid var(--ink); margin-top:10px; padding-top:6px;
+  font-family:'Courier New',monospace; }
+.disclaimer { background:var(--ink); color:var(--paper); text-align:center; font-size:12px;
+  letter-spacing:1px; padding:6px 10px; margin:14px 0; font-family:'Courier New',monospace; }
+.tickets { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:18px 0 10px; }
+.ticket, .acard { border:1.5px solid var(--ink); background:var(--card); padding:10px 12px; text-align:left;
+  box-shadow:3px 3px 0 rgba(28,26,22,.15); font:inherit; color:inherit; }
+.ticket { cursor:pointer; border-top:4px solid var(--ind-color); transition:transform .08s; }
+.ticket:hover { transform:translate(-1px,-1px); box-shadow:4px 4px 0 rgba(28,26,22,.2); }
+.ticket.active { outline:2.5px solid var(--ind-color); outline-offset:1px; }
+.acard { border-top:4px solid var(--rule); cursor:help; }
+.qm { display:inline-block; width:13px; height:13px; border:1px solid var(--pending); border-radius:50%;
+  font:700 9px/13px 'Courier New',monospace; text-align:center; color:var(--pending); }
+.tk-name { font-variant:small-caps; letter-spacing:1.5px; font-size:12px; color:var(--pending); }
+.tk-val { font:700 22px/1.2 'Courier New',monospace; margin:2px 0; }
+.est { color:var(--gold); cursor:help; }
+.delta { font-size:11.5px; font-family:'Courier New',monospace; }
+.delta.up { color:var(--hit); } .delta.dn { color:var(--miss); } .delta.flat { color:var(--pending); }
+.tk-src { font-size:10.5px; color:var(--pending); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+h2.rulehead { font-variant:small-caps; letter-spacing:3px; font-size:16px; text-align:center;
+  border-top:1px solid var(--ink); border-bottom:1px solid var(--ink); padding:5px 0; margin:26px 0 14px; }
+.exttable { width:100%; border-collapse:collapse; background:var(--card); border:1.5px solid var(--ink);
+  box-shadow:3px 3px 0 rgba(28,26,22,.12); font-size:13.5px; }
+.exttable td { padding:7px 12px; border-bottom:1px dashed var(--rule); }
+.exttable tr:last-child td { border-bottom:none; }
+.exttable .num { font-family:'Courier New',monospace; font-weight:700; text-align:right; white-space:nowrap; }
+.exttable .srccell { font-size:11px; color:var(--pending); text-align:right; }
+.ext-row { cursor:pointer; } .ext-row:hover { background:#efe9d8; }
+.dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; }
+.briefing { display:grid; grid-template-columns:1fr 1fr; gap:26px; }
+@media (max-width:700px) { .briefing { grid-template-columns:1fr; } }
+.briefing h3 { font-variant:small-caps; letter-spacing:2px; font-size:13.5px; margin:14px 0 4px;
+  color:var(--accent); }
+.briefing p { margin:4px 0 10px; }
+.forecast { border-left:3px solid var(--gold); padding-left:10px; font-style:italic; }
+.dl { font-size:11px; color:var(--pending); letter-spacing:1px; }
+.wire { font-size:13.5px; color:#3a372f; }
+.scoreboard { display:flex; gap:22px; justify-content:center; font-family:'Courier New',monospace;
+  font-size:14px; margin:10px 0 4px; flex-wrap:wrap; }
+.scoreboard b { font-size:20px; display:block; text-align:center; }
+.chip { font:12.5px 'Courier New',monospace; letter-spacing:1px; background:var(--card);
+  border:1.5px solid var(--ink); padding:4px 10px; cursor:pointer; color:inherit; }
+.chip:hover:not(:disabled) { background:#efe9d8; }
+.chip.on { background:var(--ink); color:var(--paper); }
+.chip:disabled { opacity:.45; cursor:not-allowed; }
+.ind-chip .dot { background:var(--ind-color); margin-right:6px; width:9px; height:9px; }
+.ind-chip.on { background:var(--ind-color); border-color:var(--ind-color); color:#fffdf6; }
+.chartbar { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:8px 0; }
+.panelgrid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:760px) { .panelgrid { grid-template-columns:1fr; } }
+.panel { border:1.5px solid var(--ink); background:var(--card); padding:10px 12px 8px;
+  box-shadow:3px 3px 0 rgba(28,26,22,.12); }
+.panel h4 { margin:0 0 6px; font-variant:small-caps; letter-spacing:1.5px; font-size:12.5px;
+  color:var(--pending); font-weight:400; }
+.panel .cwrap { position:relative; height:190px; }
+.bigchart { border:1.5px solid var(--ink); background:var(--card); padding:14px;
+  box-shadow:3px 3px 0 rgba(28,26,22,.12); }
+.bigchart .cwrap { position:relative; height:320px; }
+.note { text-align:center; font-size:12px; color:var(--pending); margin:6px 0 0; }
+.keybox { border:1.5px dashed var(--rule); background:var(--card); padding:12px 16px;
+  display:flex; gap:18px; flex-wrap:wrap; align-items:center; justify-content:center;
+  font-size:12.5px; margin:0 0 14px; }
+.keybox .k { display:flex; align-items:center; gap:7px; }
+.filterbar { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:0 0 12px; }
+.ledger-row { border:1.5px solid var(--ink); background:var(--card); margin:12px 0; padding:12px 14px;
+  position:relative; box-shadow:3px 3px 0 rgba(28,26,22,.12); }
+.ledger-row.hidden { display:none; }
+.lr-head { display:flex; gap:14px; align-items:center; font-family:'Courier New',monospace; font-size:13px; }
+.lr-no { color:var(--pending); }
+.stamp { margin-left:auto; font:700 15px 'Courier New',monospace; letter-spacing:2px;
+  padding:2px 10px; border:2.5px solid; transform:rotate(-6deg); opacity:.85; }
+.stamp.sm { font-size:11px; padding:1px 7px; transform:rotate(-4deg); margin-left:0; }
+.stamp.hit { color:var(--hit); border-color:var(--hit); }
+.stamp.miss { color:var(--miss); border-color:var(--miss); }
+.stamp.partial { color:var(--partial); border-color:var(--partial); }
+.stamp.pending { color:var(--pending); border-color:var(--pending); border-style:dashed; }
+.lr-forecast { font-style:italic; margin:8px 0 4px; }
+details summary { cursor:pointer; font-size:12.5px; color:var(--pending);
+  font-variant:small-caps; letter-spacing:1px; }
+details p { font-size:13.5px; }
+.meta { font-size:11px; color:var(--pending); font-family:'Courier New',monospace; }
+.grade-note { border-top:1px dashed var(--rule); margin-top:8px; padding-top:6px; font-size:13px; }
+.grade-note em { display:block; color:#3a372f; }
+.pending-note { color:var(--pending); font-family:'Courier New',monospace; font-size:12px; }
+.empty { text-align:center; padding:60px 20px; }
+.empty-stamp { display:inline-block; font:700 26px 'Courier New',monospace; letter-spacing:3px;
+  color:var(--pending); border:3px dashed var(--pending); padding:10px 26px;
+  transform:rotate(-4deg); margin-bottom:18px; }
+footer { text-align:center; font-size:11.5px; color:var(--pending); margin-top:34px;
+  border-top:1px solid var(--rule); padding-top:10px; }
+</style></head><body><div class="wrap">
+<header class="masthead">
+  <div class="sub">South African Macro &amp; Markets — A Self-Grading Ledger</div>
+  <h1>THE BULLION BULLETIN</h1>
+  <div class="issue-line"><span>ISSUE № 005</span><span>RENDERED 2026-07-07</span><span>CAPE TOWN</span></div>
+</header>
+<div class="disclaimer">RESEARCH &amp; PORTFOLIO PRACTICE TOOL · NOT INVESTMENT, TRADING, OR POLICY ADVICE</div>
+
+<div class="tickets">
+      <button class="ticket" data-ind="cpi_yoy" title="Click to chart CPI Y/Y"
+              style="--ind-color:#8a1c1c">
+        <div class="tk-name">CPI Y/Y</div>
+        <div class="tk-val">4.50%</div>
+        <div class="delta flat">+0.00 vs prev entry</div>
+        <div class="tk-src" title="SARB WebIndicators (CPI1000F) · value as of 2026-05-31">SARB WebIndicators (CPI1000F) · 2026-05-31</div>
+      </button>
+      <button class="ticket" data-ind="repo_rate" title="Click to chart Repo rate"
+              style="--ind-color:#1d4f6b">
+        <div class="tk-name">Repo rate</div>
+        <div class="tk-val">7.00%</div>
+        <div class="delta flat">+0.00 vs prev entry</div>
+        <div class="tk-src" title="SARB WebIndicators (MMRD002A) · value as of 2026-07-03">SARB WebIndicators (MMRD002A) · 2026-07-03</div>
+      </button>
+      <button class="ticket" data-ind="zar_usd" title="Click to chart ZAR / USD"
+              style="--ind-color:#1d6b38">
+        <div class="tk-name">ZAR / USD</div>
+        <div class="tk-val">R16.21</div>
+        <div class="delta flat">+0.00 vs prev entry</div>
+        <div class="tk-src" title="SARB WebIndicators (EXCX135D) · value as of 2026-07-03">SARB WebIndicators (EXCX135D) · 2026-07-03</div>
+      </button>
+      <button class="ticket" data-ind="jse_alsi" title="Click to chart JSE ALSI"
+              style="--ind-color:#5b3a8a">
+        <div class="tk-name">JSE ALSI</div>
+        <div class="tk-val">111,164<span class="est" title="search-extracted — delayed/approximate, see key below">≈</span></div>
+        <div class="delta up">+339.03 vs prev entry</div>
+        <div class="tk-src" title="web (Trading Economics SAALL / Investing.com JALSH, 6 Jul close) · value as of 2026-07-06">web (Trading Economics SAALL / Investing.com JALSH, 6 Jul close) · 2026-07-06</div>
+      </button>
+      <button class="ticket" data-ind="gold_usd" title="Click to chart Gold"
+              style="--ind-color:#a07617">
+        <div class="tk-name">Gold</div>
+        <div class="tk-val">$4,124</div>
+        <div class="delta dn">-34.80 vs prev entry</div>
+        <div class="tk-src" title="gold-api.com (XAU) · value as of 2026-07-07">gold-api.com (XAU) · 2026-07-07</div>
+      </button>
+      <button class="ticket" data-ind="platinum_usd" title="Click to chart Platinum"
+              style="--ind-color:#55606b">
+        <div class="tk-name">Platinum</div>
+        <div class="tk-val">$1,649</div>
+        <div class="delta up">+1.00 vs prev entry</div>
+        <div class="tk-src" title="gold-api.com (XPT) · value as of 2026-07-07">gold-api.com (XPT) · 2026-07-07</div>
+      </button></div>
+<h2 class="rulehead">Analytics Desk</h2>
+<div class="tickets">
+      <div class="acard" title="Ex-post real policy rate: how restrictive monetary policy is after inflation. SARB&#x27;s neutral estimate sits near +2.5pp.">
+        <div class="tk-name">Real repo rate <span class="qm">?</span></div>
+        <div class="tk-val">+2.50 pp</div><div class="delta flat">+0.00 vs prev</div>
+        <div class="tk-src">repo − CPI y/y</div>
+      </div>
+      <div class="acard" title="Long yield minus policy rate: compensation for duration, fiscal and inflation risk. Widening = markets charging more for SA&#x27;s long-term story.">
+        <div class="tk-name">Term spread <span class="qm">?</span></div>
+        <div class="tk-val">+1.39 pp</div>
+        <div class="tk-src">R209 (2036) − repo</div>
+      </div>
+      <div class="acard" title="Slope of the government curve between the R2030 and R209 benchmarks. Steepening often reflects fiscal-risk premium rather than growth optimism.">
+        <div class="tk-name">Curve slope <span class="qm">?</span></div>
+        <div class="tk-val">+0.72 pp</div>
+        <div class="tk-src">2036s − 2030s</div>
+      </div>
+      <div class="acard" title="Ounces of platinum per ounce of gold. A falling ratio favours SA&#x27;s PGM basket (and PGM miners) relative to gold.">
+        <div class="tk-name">Gold / platinum <span class="qm">?</span></div>
+        <div class="tk-val">2.50×</div><div class="delta dn">-0.02 vs prev</div>
+        <div class="tk-src">ratio</div>
+      </div>
+      <div class="acard" title="Drawdown of the All Share from its highest level recorded in this ledger.">
+        <div class="tk-name">ALSI vs ledger high <span class="qm">?</span></div>
+        <div class="tk-val">-1.7%</div>
+        <div class="tk-src">peak 113,100 in this ledger</div>
+      </div>
+      <div class="acard" title="Change in rand-per-dollar since ~a month of entries ago. Positive = rand weaker against the dollar.">
+        <div class="tk-name">Rand momentum <span class="qm">?</span></div>
+        <div class="tk-val">-1.22%</div>
+        <div class="tk-src">vs 2026-07-03 (R/$)</div>
+      </div></div>
+<p class="note">hover a card for the definition — computed from the ledger, not fetched</p>
+<h2 class="rulehead">Extended Board</h2>
+<table class="exttable"><tbody><tr class="ext-row" data-ind="prime_rate" title="Click to chart Prime rate">
+              <td><span class="dot" style="background:#b0553a"></span>Prime rate</td>
+              <td class="num">10.50%</td><td class="num"><span class="delta flat">+0.00</span></td>
+              <td class="srccell">SARB WebIndicators (MMRD000A) · 2026-07-03</td></tr><tr class="ext-row" data-ind="ppi_yoy" title="Click to chart PPI Y/Y">
+              <td><span class="dot" style="background:#d08b2f"></span>PPI Y/Y</td>
+              <td class="num">7.81%</td><td class="num"><span class="delta flat">+0.00</span></td>
+              <td class="srccell">SARB WebIndicators (PPI1000F) · 2026-05-31</td></tr><tr class="ext-row" data-ind="bond_2030" title="Click to chart R2030 yield">
+              <td><span class="dot" style="background:#2a7a86"></span>R2030 yield</td>
+              <td class="num">7.67%</td><td class="num"><span class="delta flat">+0.00</span></td>
+              <td class="srccell">SARB WebIndicators (MMRD708A) · 2026-07-02</td></tr><tr class="ext-row" data-ind="bond_2036" title="Click to chart R209 (2036) yield">
+              <td><span class="dot" style="background:#144552"></span>R209 (2036) yield</td>
+              <td class="num">8.39%</td><td class="num"><span class="delta flat">+0.00</span></td>
+              <td class="srccell">SARB WebIndicators (MMRD709A) · 2026-07-02</td></tr><tr class="ext-row" data-ind="zar_eur" title="Click to chart ZAR / EUR">
+              <td><span class="dot" style="background:#4a8a4a"></span>ZAR / EUR</td>
+              <td class="num">R18.57</td><td class="num"><span class="delta flat">+0.00</span></td>
+              <td class="srccell">SARB WebIndicators (EXCZ002D) · 2026-07-03</td></tr><tr class="ext-row" data-ind="zar_gbp" title="Click to chart ZAR / GBP">
+              <td><span class="dot" style="background:#7aa03c"></span>ZAR / GBP</td>
+              <td class="num">R21.67</td><td class="num"><span class="delta flat">+0.00</span></td>
+              <td class="srccell">SARB WebIndicators (EXCZ001D) · 2026-07-03</td></tr><tr class="ext-row" data-ind="neer" title="Click to chart NEER (trade-wtd rand)">
+              <td><span class="dot" style="background:#6b4b2a"></span>NEER (trade-wtd rand)</td>
+              <td class="num">86.18</td><td class="num"><span class="delta flat">+0.00</span></td>
+              <td class="srccell">SARB WebIndicators (EER4504A) · 2026-07-03</td></tr><tr class="ext-row" data-ind="brent_usd" title="Click to chart Brent crude">
+              <td><span class="dot" style="background:#3a3a3a"></span>Brent crude</td>
+              <td class="num">$72.89 <span class="est" title="search-extracted, delayed/approximate">≈</span></td><td class="num"><span class="delta up">+1.09</span></td>
+              <td class="srccell">web (Trading Economics Brent tape; Fortune 7 Jul) · 2026-07-07</td></tr></tbody></table>
+<p class="note">click a row to chart it · ≈ marks search-extracted values</p>
+<h2 class="rulehead">Today’s Briefing — 2026-07-07</h2>
+    <section class="briefing">
+      <div class="col">
+        <h3>Analysis</h3><p>First full trading day after the long weekend, and the honest read is little changed since yesterday rather than a new turn. The SARB board still carries Thursday&#x27;s close verbatim — repo 7.00%, prime 10.50%, ZAR 16.21/$, R2030 7.68%, R209 8.40%, NEER 86.18 — so nothing domestic has re-rated ahead of the 23 July MPC. Two small moves are worth logging: the JSE All Share prints ~111,164 at the 6 July close (Trading Economics/Investing.com), which cleanly corroborates Sunday&#x27;s walk-back of the erroneous 113,100 and puts equities within 0.3% of last week&#x27;s ~110,825 — range-bound, not trending. Meanwhile gold has slipped to $4,124/oz (from $4,159) and Brent has firmed to ~$72.9 but is still pinned near four-month lows on rising OPEC+ supply, so the imported-inflation threat that justified May&#x27;s hike stays dormant. The soft growth pulse I flagged yesterday (June PMI in contraction, first trade gap in 16 months) is unchanged and still argues for a hold, not a hike.</p>
+        <h3>Forecast <span class="dl">check by 2026-07-31</span></h3>
+        <p class="forecast">By 31 July 2026: (a) the SARB MPC holds the repo rate at 7.00% at its 23 July meeting (no hike, no cut); (b) StatsSA&#x27;s June CPI, released ~23 July, prints at or below 4.6% y/y; (c) Brent crude closes 31 July below $80/bbl, keeping the oil-shock risk contained; and (d) the JSE All Share (~111,164 on 6 Jul) closes 31 July between 106,000 and 116,000, i.e. holding its current range without breaching the 129,339 March record or falling below 106,000. Supplementary: the rand ends July stronger than 17.00/$.</p>
+      </div>
+      <div class="col">
+        <h3>Policy desk</h3><p>The case for a hold at 7.00% on 23 July has, if anything, firmed since last week: Brent near $72.9 and capped by supply, a rand holding 16.21/$, and gold easing all keep imported inflation dormant, while contracting manufacturing and the recent trade gap show demand cooling on its own. The SARB should hold, retire May&#x27;s oil-shock hawkishness, and signal that its next move is more likely a cut than a hike if June/July CPI confirms disinflation toward the 3% target. On the fiscal side, with the oil reprieve holding, Treasury should stop leaning on the policy rate for shock absorption and finally legislate the rules-based fuel-levy stabilisation band this ledger has flagged since 3 July, while pressing logistics and electricity reform to lift the growth floor.</p>
+        <h3>On the wire</h3><p class='wire'>SARB widely expected to hold at 7.00% on 23 July; PSG&#x27;s Johann Els sees no July hike despite raised Q2 inflation expectations (BusinessTech; News24 on the 28 May 25bp hike, 4-2 vote). May CPI 4.5% y/y, third straight monthly rise but below the 4.7% expected (Trading Economics/StatsSA); June CPI due ~23 July. JSE ALSI ~111,164 at 6 Jul close (Trading Economics SAALL; Investing.com JALSH). Brent ~$72.9, +1.3% on the day but near four-month lows on rising supply (Trading Economics; Fortune 7 Jul). Gold $4,124/oz, platinum $1,649 (gold-api.com). Growth pulse soft: June manufacturing PMI in contraction, first trade gap in 16 months (prior StatsSA/Absa releases).</p>
+        <h3>Diary — event watch</h3><p class='wire'>~23 Jul StatsSA June CPI; 23 Jul SARB MPC decision; Q2 GDP &amp; QLFS (unemployment) due Aug. Monitor ALSI vs ~111,000 range (106k floor / 129,339 ATH), rand vs 17.00/$, Brent vs $80, gold vs $4,100, R2030 vs 7.95%.</p>
+      </div>
+    </section>
+<h2 class="rulehead">Scoreboard</h2>
+<div class="scoreboard">
+  <span><b>5</b>entries</span><span><b>0</b>graded</span>
+  <span><b>0</b>hits</span><span><b>0</b>partials</span>
+  <span><b>0</b>misses</span><span><b>—</b>hit rate*</span>
+</div>
+<p class="note">*partials count half</p>
+<h2 class="rulehead">Indicator Trends</h2>
+<div class="chartbar">
+  <button class="chip mode-chip on" data-mode="grouped">Grouped (like-for-like)</button>
+  <button class="chip mode-chip" data-mode="rebased"  title="Compare moves across units: every series re-based to 100 at the start of the window">Rebased = 100</button>
+</div>
+<div class="chartbar"><button class="chip ind-chip" data-ind="cpi_yoy" style="--ind-color:#8a1c1c"><span class="dot"></span>CPI Y/Y</button><button class="chip ind-chip" data-ind="repo_rate" style="--ind-color:#1d4f6b"><span class="dot"></span>Repo rate</button><button class="chip ind-chip" data-ind="zar_usd" style="--ind-color:#1d6b38"><span class="dot"></span>ZAR / USD</button><button class="chip ind-chip" data-ind="jse_alsi" style="--ind-color:#5b3a8a"><span class="dot"></span>JSE ALSI</button><button class="chip ind-chip" data-ind="gold_usd" style="--ind-color:#a07617"><span class="dot"></span>Gold</button><button class="chip ind-chip" data-ind="platinum_usd" style="--ind-color:#55606b"><span class="dot"></span>Platinum</button><button class="chip ind-chip" data-ind="prime_rate" style="--ind-color:#b0553a"><span class="dot"></span>Prime rate</button><button class="chip ind-chip" data-ind="ppi_yoy" style="--ind-color:#d08b2f"><span class="dot"></span>PPI Y/Y</button><button class="chip ind-chip" data-ind="bond_2030" style="--ind-color:#2a7a86"><span class="dot"></span>R2030 yield</button><button class="chip ind-chip" data-ind="bond_2036" style="--ind-color:#144552"><span class="dot"></span>R209 (2036) yield</button><button class="chip ind-chip" data-ind="zar_eur" style="--ind-color:#4a8a4a"><span class="dot"></span>ZAR / EUR</button><button class="chip ind-chip" data-ind="zar_gbp" style="--ind-color:#7aa03c"><span class="dot"></span>ZAR / GBP</button><button class="chip ind-chip" data-ind="neer" style="--ind-color:#6b4b2a"><span class="dot"></span>NEER (trade-wtd rand)</button><button class="chip ind-chip" data-ind="brent_usd" style="--ind-color:#3a3a3a"><span class="dot"></span>Brent crude</button></div>
+<div class="chartbar" id="rangebar">
+  <button class="chip" data-days="14">2W</button><button class="chip" data-days="31">1M</button>
+  <button class="chip" data-days="92">3M</button><button class="chip on" data-days="0">ALL</button>
+</div>
+<div id="chartzone"></div>
+
+<p class="note" id="offline-note" style="display:none">Charts need an internet connection
+(Chart.js CDN) — everything else on this page works offline.</p>
+<h2 class="rulehead">The Ledger</h2>
+<div class="keybox">
+  <span style="font-variant:small-caps;letter-spacing:2px">key:</span>
+  <span class="k"><span class="stamp sm hit">HIT</span> forecast realised</span>
+  <span class="k"><span class="stamp sm partial">PARTIAL</span> partly realised (half-weight)</span>
+  <span class="k"><span class="stamp sm miss">MISS</span> central claim failed</span>
+  <span class="k"><span class="stamp sm pending">PENDING</span> awaiting its deadline</span>
+  <span class="k"><span class="est" style="font-size:16px">≈</span> search-extracted, delayed/approximate</span>
+  <span class="k" style="color:var(--pending)">original forecasts are never edited — verdicts are stamped alongside</span>
+</div>
+<div class="filterbar"><button class="chip f-chip" data-f="all">All <b>5</b></button><button class="chip f-chip" data-f="pending">Pending <b>5</b></button><button class="chip f-chip" data-f="hit">Hit <b>0</b></button><button class="chip f-chip" data-f="partial">Partial <b>0</b></button><button class="chip f-chip" data-f="miss">Miss <b>0</b></button></div>
+
+      <article class="ledger-row" data-verdict="pending">
+        <div class="lr-head">
+          <span class="lr-no">№ 005</span>
+          <span class="lr-date">2026-07-07</span>
+          <span class="stamp pending">PENDING</span>
+        </div>
+        <p class="lr-forecast">By 31 July 2026: (a) the SARB MPC holds the repo rate at 7.00% at its 23 July meeting (no hike, no cut); (b) StatsSA&#x27;s June CPI, released ~23 July, prints at or below 4.6% y/y; (c) Brent crude closes 31 July below $80/bbl, keeping the oil-shock risk contained; and (d) the JSE All Share (~111,164 on 6 Jul) closes 31 July between 106,000 and 116,000, i.e. holding its current range without breaching the 129,339 March record or falling below 106,000. Supplementary: the rand ends July stronger than 17.00/$.</p>
+        <details><summary>full entry</summary>
+          <p><strong>Analysis.</strong> First full trading day after the long weekend, and the honest read is little changed since yesterday rather than a new turn. The SARB board still carries Thursday&#x27;s close verbatim — repo 7.00%, prime 10.50%, ZAR 16.21/$, R2030 7.68%, R209 8.40%, NEER 86.18 — so nothing domestic has re-rated ahead of the 23 July MPC. Two small moves are worth logging: the JSE All Share prints ~111,164 at the 6 July close (Trading Economics/Investing.com), which cleanly corroborates Sunday&#x27;s walk-back of the erroneous 113,100 and puts equities within 0.3% of last week&#x27;s ~110,825 — range-bound, not trending. Meanwhile gold has slipped to $4,124/oz (from $4,159) and Brent has firmed to ~$72.9 but is still pinned near four-month lows on rising OPEC+ supply, so the imported-inflation threat that justified May&#x27;s hike stays dormant. The soft growth pulse I flagged yesterday (June PMI in contraction, first trade gap in 16 months) is unchanged and still argues for a hold, not a hike.</p>
+          <p><strong>Policy.</strong> The case for a hold at 7.00% on 23 July has, if anything, firmed since last week: Brent near $72.9 and capped by supply, a rand holding 16.21/$, and gold easing all keep imported inflation dormant, while contracting manufacturing and the recent trade gap show demand cooling on its own. The SARB should hold, retire May&#x27;s oil-shock hawkishness, and signal that its next move is more likely a cut than a hike if June/July CPI confirms disinflation toward the 3% target. On the fiscal side, with the oil reprieve holding, Treasury should stop leaning on the policy rate for shock absorption and finally legislate the rules-based fuel-levy stabilisation band this ledger has flagged since 3 July, while pressing logistics and electricity reform to lift the growth floor.</p>
+          <p><strong>News context.</strong> SARB widely expected to hold at 7.00% on 23 July; PSG&#x27;s Johann Els sees no July hike despite raised Q2 inflation expectations (BusinessTech; News24 on the 28 May 25bp hike, 4-2 vote). May CPI 4.5% y/y, third straight monthly rise but below the 4.7% expected (Trading Economics/StatsSA); June CPI due ~23 July. JSE ALSI ~111,164 at 6 Jul close (Trading Economics SAALL; Investing.com JALSH). Brent ~$72.9, +1.3% on the day but near four-month lows on rising supply (Trading Economics; Fortune 7 Jul). Gold $4,124/oz, platinum $1,649 (gold-api.com). Growth pulse soft: June manufacturing PMI in contraction, first trade gap in 16 months (prior StatsSA/Absa releases).</p>
+          <p><strong>Watch.</strong> ~23 Jul StatsSA June CPI; 23 Jul SARB MPC decision; Q2 GDP &amp; QLFS (unemployment) due Aug. Monitor ALSI vs ~111,000 range (106k floor / 129,339 ATH), rand vs 17.00/$, Brent vs $80, gold vs $4,100, R2030 vs 7.95%.</p>
+          <p class="meta">filed 2026-07-07T17:07:55 · claude-opus-4-8</p>
+        </details>
+        <div class="grade-note pending-note">due 2026-07-31</div>
+      </article>
+      <article class="ledger-row" data-verdict="pending">
+        <div class="lr-head">
+          <span class="lr-no">№ 004</span>
+          <span class="lr-date">2026-07-06</span>
+          <span class="stamp pending">PENDING</span>
+        </div>
+        <p class="lr-forecast">By 31 July 2026: (a) the SARB MPC holds the repo rate at 7.00% at its 23 July meeting (no hike, no cut); (b) StatsSA&#x27;s June CPI, released ~22 July, prints at or below 4.6% y/y; and (c) the JSE All Share Index — ~110,800 on 6 July — closes 31 July between 106,000 and 116,000 points, i.e. holding roughly its current level, neither breaking above the 129,339 March record nor collapsing below 106,000. Supplementary: the rand stays range-bound and stronger than 17.00/$ at the 31 July close.</p>
+        <details><summary>full entry</summary>
+          <p><strong>Analysis.</strong> Rates and the rand are essentially unchanged over the long weekend: repo 7.00%, ZAR 16.21/$, R2030 7.68% and R209 8.40% all still carry Thursday&#x27;s SARB close, so the domestic policy picture is little changed. Two things do move the read. First, a correction I owe the ledger — authoritative feeds (Trading Economics SAALL, FT.com JALSH) put the JSE All Share at ~110,800 on 6 July, down ~0.6% intraday and close to the 110,449 originally recorded, not the 113,100 I substituted in yesterday from a single live-quote page; that 113,100 looks to have been the bad number, so I am walking back Saturday&#x27;s &#x27;correction&#x27; rather than letting it stand. Second, beneath the easing-conditions story the growth pulse is quietly softening: Absa&#x27;s manufacturing PMI slipped back into contraction in June, the business-cycle index fell for the first time in seven months, and StatsSA logged the first trade gap in 16 months — which, alongside gold easing to $4,159 and equities red today, strengthens rather than weakens the case for the SARB to sit at 7.00% on 23 July.</p>
+          <p><strong>Policy.</strong> With imported-inflation risk fading (Brent ~$72, rand firm near 16.20/$) and domestic demand now visibly cooling — June manufacturing PMI in contraction, the first trade gap in 16 months, Q2 consumer confidence slipping — the balance of risks has tilted from inflation toward growth. The SARB should hold at 7.00% on 23 July but retire May&#x27;s hawkish oil-shock framing and signal that its next move is more likely a cut than a hike if the June/July CPI prints confirm disinflation toward the new 3% target, preserving room to ease later in Q3. On the fiscal side, the trade gap and soft Q1 FDI argue for pressing ahead with logistics and electricity reform rather than leaning on the policy rate — and for finally legislating the rules-based fuel-levy stabilisation band this ledger has flagged since 3 July.</p>
+          <p><strong>News context.</strong> SARB widely expected to hold at 7.00% on 23 July despite the Q2 rise in inflation expectations (BusinessTech, 1 Jul); repo has sat at 7.00% since the 28 May 25bp hike (Moneyweb). JSE ALSI ~110,800, -0.6% on 6 Jul (Trading Economics SAALL 110,825; FT.com JALSH 110,804, 15-min delayed). Brent ~$71.8, holding below $72 (Trading Economics). Domestic activity softening: Absa manufacturing PMI contracted in June, business-cycle index down for the first time in 7 months, first trade gap in 16 months, Q2 consumer confidence slipped, unemployment 32.7% in Q1 (Trading Economics / StatsSA). Gold $4,159/oz, platinum $1,648 (gold-api.com). SARB has trimmed its 2026 CPI projection toward the 3% target (Trading Economics).</p>
+          <p><strong>Watch.</strong> ~22 Jul StatsSA June CPI; 23 Jul SARB MPC decision; Q2 GDP &amp; QLFS (unemployment) due Aug. Monitor ALSI vs ~110,800 and the 129,339 March ATH, rand vs 17.00/$, Brent vs $72, R2030 vs 7.95%.</p>
+          <p class="meta">filed 2026-07-06T15:10:39 · claude-opus-4-8</p>
+        </details>
+        <div class="grade-note pending-note">due 2026-07-31</div>
+      </article>
+      <article class="ledger-row" data-verdict="pending">
+        <div class="lr-head">
+          <span class="lr-no">№ 003</span>
+          <span class="lr-date">2026-07-05</span>
+          <span class="stamp pending">PENDING</span>
+        </div>
+        <p class="lr-forecast">By 31 July 2026: (a) the SARB MPC holds the repo rate at 7.00% on 23 July (no hike, no cut); (b) the rand, having firmed to 16.21/$, ends July stronger than 16.70/$ (i.e. the appreciation is not fully unwound); and (c) the R2030 bond yield closes end-July at or below 7.85%, consistent with easing conditions rather than a renewed sell-off.</p>
+        <details><summary>full entry</summary>
+          <p><strong>Analysis.</strong> A quiet holiday-weekend read, but the signal is a broad, self-driven easing of financial conditions rather than nothing: since 1 July the rand has firmed to 16.21/$ (from 16.42), the trade-weighted NEER lifted to 86.18, and both benchmark yields eased (R2030 7.68%, R209 8.40%), while Brent held near $72 and gold/platinum were unchanged ($4,176 / $1,656). Layered on July&#x27;s fuel cuts and the Q1 +0.5% q/q GDP print (a sixth straight quarter of growth), this loosening reinforces the case that the SARB can hold at 7.00% on 23 July without importing fresh inflation. One correction to the ledger: today&#x27;s JSE ALSI (~113,100) is materially above the 110,449 carried in the prior two entries, which appears to have been a stale value repeated across days — so the equity board is firmer than previously recorded, not freshly rallying.</p>
+          <p><strong>Policy.</strong> With the rand at ~16.21/$, yields easing (R2030 7.68%) and Brent stable near $72, financial conditions are loosening without any SARB move; the MPC should hold at 7.00% on 23 July and use the statement to frame May&#x27;s hike as one-off oil insurance rather than the start of a cycle, capping the risk that markets price in further tightening. With yields lower, Treasury should opportunistically extend issuance duration while the window is open, and still legislate a rules-based fuel-levy stabilisation band so the next oil shock is absorbed fiscally rather than through the policy rate.</p>
+          <p><strong>News context.</strong> Brent ~$72.1/bbl, near pre-conflict lows after the Strait of Hormuz reopened and on U.S.-Iran talks (Trading Economics, Investing.com). SARB repo held at 7.00% since the 28 May hike (backed by 4 of 6 MPC members), with 2026 CPI seen 4.4% and growth 1.2%; next MPC 23 July, analysts divided (Standard Bank, FocusEconomics, Trading Economics). Q1 2026 GDP rose 0.5% q/q, a sixth consecutive quarter of growth (StatsSA via CNBC Africa). Rand 16.21/$ and bond yields eased per SARB WebIndicators; JSE ALSI ~113,100 (sashares.co.za live quote). June CPI due ~22 July (StatsSA).</p>
+          <p><strong>Watch.</strong> 22 Jul (~) StatsSA June CPI; 23 Jul SARB MPC decision; Q2 GDP &amp; QLFS due Aug. Monitor rand vs 16.70/$, R2030 yield vs 7.85%, and Brent vs $80.</p>
+          <p class="meta">filed 2026-07-05T08:06:39 · claude-opus-4-8</p>
+        </details>
+        <div class="grade-note pending-note">due 2026-07-31</div>
+      </article>
+      <article class="ledger-row" data-verdict="pending">
+        <div class="lr-head">
+          <span class="lr-no">№ 002</span>
+          <span class="lr-date">2026-07-04</span>
+          <span class="stamp pending">PENDING</span>
+        </div>
+        <p class="lr-forecast">By 31 July 2026: (a) the SARB MPC on 23 July holds the repo rate at 7.00% (no further hike); (b) StatsSA&#x27;s June CPI (due ~22 July) prints at or below 4.5% y/y; and (c) Brent stays below $80/bbl at the 31 July close, keeping the oil-shock risk that justified the May hike contained.</p>
+        <details><summary>full entry</summary>
+          <p><strong>Analysis.</strong> Little changed on the domestic rate front, but the external picture eased materially: Brent has slid to ~$72/bbl on U.S.-Iran peace hopes and higher Gulf exports, well below the ~$97 rebound tape logged yesterday. That reprices the imported-inflation threat that drove May&#x27;s hike to 7.00% downward, and stacks on top of July&#x27;s sharp fuel cuts to reinforce a benign Q3 CPI path. SARB rates, the rand (16.42/$), and long bonds (R2030 7.74%, R209 8.43%) are essentially unmoved from 1 July; gold ticked up to $4,176/oz while platinum held $1,656.</p>
+          <p><strong>Policy.</strong> With Brent back near $72 the acute imported-inflation case for another hike has weakened; the SARB should hold at 7.00% on 23 July and lean on base effects and the fuel-cut cushion rather than tighten into a shock that is already reversing. Treasury should still bank the reprieve by advancing a rules-based fuel-levy stabilisation band so the next oil swing is absorbed fiscally rather than via the policy rate.</p>
+          <p><strong>News context.</strong> SARB hiked to 7.00% on 28 May (4-2 vote) citing Middle East oil risk; 2026 CPI forecast 4.4%, growth cut to 1.2%; next MPC 23 July. Brent ~$72.3 on 3 July (up 0.6%) on U.S.-Iran peace hopes and Gulf exports (HDFCSky/Trading Economics), down sharply from the ~$97 rebound tape. JSE ALSI closed 110,449 (+0.76%) 3 July (Investing.com). Sources: Daily Maverick, Moonstone, Standard Bank outlook, HDFCSky oil report, Trading Economics, Investing.com.</p>
+          <p><strong>Watch.</strong> 22 Jul (~) StatsSA June CPI; 23 Jul SARB MPC decision; Q2 GDP and QLFS releases due Aug; monitor Brent vs $80 and ZAR vs 16.80/$.</p>
+          <p class="meta">filed 2026-07-04T08:04:03 · claude-opus-4-8</p>
+        </details>
+        <div class="grade-note pending-note">due 2026-07-31</div>
+      </article>
+      <article class="ledger-row" data-verdict="pending">
+        <div class="lr-head">
+          <span class="lr-no">№ 001</span>
+          <span class="lr-date">2026-07-03</span>
+          <span class="stamp pending">PENDING</span>
+        </div>
+        <p class="lr-forecast">By 31 July 2026: (a) StatsSA&#x27;s June CPI print (due ~22 July) comes in at 4.4% y/y or lower, and (b) the SARB MPC&#x27;s July decision holds the repo rate at 7.00% rather than hiking again.</p>
+        <details><summary>full entry</summary>
+          <p><strong>Analysis.</strong> The SARB is squeezed between its new 3% target and a 4.5% May CPI print, with Q2 inflation expectations jumping to 4.4% after the autumn oil shock. The repo sits at 7.00% after May&#x27;s hike. July&#x27;s steep fuel cuts (petrol -R1.37/l, diesel -R2.96/l) should pull headline inflation lower into Q3, though services inflation at 4.6% stays sticky.</p>
+          <p><strong>Policy.</strong> With the fuel-levy cushion permanently scrapped, households are now fully exposed to oil swings — Brent jumped ~4% again this week. Treasury should introduce a rules-based fuel-levy stabilisation band to absorb supply shocks fiscally, letting the SARB hold at 7.00% and lean on base effects instead of tightening against imported inflation.</p>
+          <p><strong>News context.</strong> Q2 SARB survey: inflation expectations up to 4.4% (from 3.6%) after the oil shock; May MPC hiked to 7.00% and flagged 4.6% services inflation. June 14 ceasefire reopened the Strait of Hormuz, crude fell from $101+ to low-$80s, but is rebounding (~$94-97). July fuel prices cut sharply (petrol ~-R1.32-1.37/l, diesel ~-R2.57-2.96/l); PPI accelerated to 7.8% (26 Jun). Sources: SARB MPC statements, Moonstone, IOL Business Report, AutoTrader fuel update, Trading Economics.</p>
+          
+          <p class="meta">filed 2026-07-03T17:28:11 · claude-fable-5 (build session)</p>
+        </details>
+        <div class="grade-note pending-note">due 2026-07-31</div>
+      </article>
+<p class="note" id="nofilter" style="display:none">No entries match this filter.</p>
+<footer>The Bullion Bulletin · built as an economics honours portfolio piece ·
+data: SARB WebIndicators, gold-api.com, frankfurter.dev, search-extracted where marked ≈ ·
+ledger is append-only; original forecasts are never edited.</footer>
+</div>
+<script>
+const D = {"dates": ["2026-07-03", "2026-07-04", "2026-07-05", "2026-07-06", "2026-07-07"], "series": {"cpi_yoy": [{"v": 4.5, "s": "SARB WebIndicators (CPI1000F)", "e": 0}, {"v": 4.5, "s": "SARB WebIndicators (CPI1000F)", "e": 0}, {"v": 4.5, "s": "SARB WebIndicators (CPI1000F)", "e": 0}, {"v": 4.5, "s": "SARB WebIndicators (CPI1000F)", "e": 0}, {"v": 4.5, "s": "SARB WebIndicators (CPI1000F)", "e": 0}], "repo_rate": [{"v": 7.0, "s": "SARB WebIndicators (MMRD002A)", "e": 0}, {"v": 7.0, "s": "SARB WebIndicators (MMRD002A)", "e": 0}, {"v": 7.0, "s": "SARB WebIndicators (MMRD002A)", "e": 0}, {"v": 7.0, "s": "SARB WebIndicators (MMRD002A)", "e": 0}, {"v": 7.0, "s": "SARB WebIndicators (MMRD002A)", "e": 0}], "zar_usd": [{"v": 16.415, "s": "SARB WebIndicators (EXCX135D)", "e": 0}, {"v": 16.415, "s": "SARB WebIndicators (EXCX135D)", "e": 0}, {"v": 16.2146, "s": "SARB WebIndicators (EXCX135D)", "e": 0}, {"v": 16.2146, "s": "SARB WebIndicators (EXCX135D)", "e": 0}, {"v": 16.2146, "s": "SARB WebIndicators (EXCX135D)", "e": 0}], "jse_alsi": [{"v": 110449.25, "s": "web search (Investing.com close)", "e": 1}, {"v": 110449.25, "s": "web search (Investing.com close)", "e": 1}, {"v": 113100.0, "s": "web (sashares.co.za JSE All Share live quote; latest available level)", "e": 1}, {"v": 110825.0, "s": "web (Trading Economics SAALL live quote 110,825; corroborated by FT.com JALSH 110,804, 15-min delayed) \u2014 intraday level, 6 Jul", "e": 1}, {"v": 111164.03, "s": "web (Trading Economics SAALL / Investing.com JALSH, 6 Jul close)", "e": 1}], "gold_usd": [{"v": 4160.6, "s": "gold-api.com (XAU)", "e": 0}, {"v": 4176.1, "s": "gold-api.com (XAU)", "e": 0}, {"v": 4176.1, "s": "gold-api.com (XAU)", "e": 0}, {"v": 4159.3, "s": "gold-api.com (XAU)", "e": 0}, {"v": 4124.5, "s": "gold-api.com (XAU)", "e": 0}], "platinum_usd": [{"v": 1656.0, "s": "gold-api.com (XPT)", "e": 0}, {"v": 1656.0, "s": "gold-api.com (XPT)", "e": 0}, {"v": 1656.0, "s": "gold-api.com (XPT)", "e": 0}, {"v": 1648.0, "s": "gold-api.com (XPT)", "e": 0}, {"v": 1649.0, "s": "gold-api.com (XPT)", "e": 0}], "prime_rate": [{"v": 10.5, "s": "SARB WebIndicators (MMRD000A)", "e": 0}, {"v": 10.5, "s": "SARB WebIndicators (MMRD000A)", "e": 0}, {"v": 10.5, "s": "SARB WebIndicators (MMRD000A)", "e": 0}, {"v": 10.5, "s": "SARB WebIndicators (MMRD000A)", "e": 0}, {"v": 10.5, "s": "SARB WebIndicators (MMRD000A)", "e": 0}], "ppi_yoy": [{"v": 7.8125, "s": "SARB WebIndicators (PPI1000F)", "e": 0}, {"v": 7.8125, "s": "SARB WebIndicators (PPI1000F)", "e": 0}, {"v": 7.8125, "s": "SARB WebIndicators (PPI1000F)", "e": 0}, {"v": 7.8125, "s": "SARB WebIndicators (PPI1000F)", "e": 0}, {"v": 7.8125, "s": "SARB WebIndicators (PPI1000F)", "e": 0}], "bond_2030": [{"v": 7.735, "s": "SARB WebIndicators (MMRD708A)", "e": 0}, {"v": 7.735, "s": "SARB WebIndicators (MMRD708A)", "e": 0}, {"v": 7.675, "s": "SARB WebIndicators (MMRD708A)", "e": 0}, {"v": 7.675, "s": "SARB WebIndicators (MMRD708A)", "e": 0}, {"v": 7.675, "s": "SARB WebIndicators (MMRD708A)", "e": 0}], "bond_2036": [{"v": 8.425, "s": "SARB WebIndicators (MMRD709A)", "e": 0}, {"v": 8.425, "s": "SARB WebIndicators (MMRD709A)", "e": 0}, {"v": 8.395, "s": "SARB WebIndicators (MMRD709A)", "e": 0}, {"v": 8.395, "s": "SARB WebIndicators (MMRD709A)", "e": 0}, {"v": 8.395, "s": "SARB WebIndicators (MMRD709A)", "e": 0}], "zar_eur": [{"v": 18.7074, "s": "SARB WebIndicators (EXCZ002D)", "e": 0}, {"v": 18.7074, "s": "SARB WebIndicators (EXCZ002D)", "e": 0}, {"v": 18.5714, "s": "SARB WebIndicators (EXCZ002D)", "e": 0}, {"v": 18.5714, "s": "SARB WebIndicators (EXCZ002D)", "e": 0}, {"v": 18.5714, "s": "SARB WebIndicators (EXCZ002D)", "e": 0}], "zar_gbp": [{"v": 21.7507, "s": "SARB WebIndicators (EXCZ001D)", "e": 0}, {"v": 21.7507, "s": "SARB WebIndicators (EXCZ001D)", "e": 0}, {"v": 21.67, "s": "SARB WebIndicators (EXCZ001D)", "e": 0}, {"v": 21.67, "s": "SARB WebIndicators (EXCZ001D)", "e": 0}, {"v": 21.67, "s": "SARB WebIndicators (EXCZ001D)", "e": 0}], "neer": [{"v": 85.5546, "s": "SARB WebIndicators (EER4504A)", "e": 0}, {"v": 85.5546, "s": "SARB WebIndicators (EER4504A)", "e": 0}, {"v": 86.1756, "s": "SARB WebIndicators (EER4504A)", "e": 0}, {"v": 86.1756, "s": "SARB WebIndicators (EER4504A)", "e": 0}, {"v": 86.1756, "s": "SARB WebIndicators (EER4504A)", "e": 0}], "brent_usd": [{"v": 97.244, "s": "web (Trading Economics tape)", "e": 1}, {"v": 72.3, "s": "web (HDFCSky / Trading Economics tape)", "e": 1}, {"v": 72.12, "s": "web (Trading Economics / Investing.com tape)", "e": 1}, {"v": 71.797, "s": "web (Trading Economics Brent crude tape, holding below $72)", "e": 1}, {"v": 72.89, "s": "web (Trading Economics Brent tape; Fortune 7 Jul)", "e": 1}]}, "labels": {"cpi_yoy": "CPI Y/Y", "repo_rate": "Repo rate", "zar_usd": "ZAR / USD", "jse_alsi": "JSE ALSI", "gold_usd": "Gold", "platinum_usd": "Platinum", "prime_rate": "Prime rate", "ppi_yoy": "PPI Y/Y", "bond_2030": "R2030 yield", "bond_2036": "R209 (2036) yield", "zar_eur": "ZAR / EUR", "zar_gbp": "ZAR / GBP", "neer": "NEER (trade-wtd rand)", "brent_usd": "Brent crude"}, "colors": {"cpi_yoy": "#8a1c1c", "repo_rate": "#1d4f6b", "zar_usd": "#1d6b38", "jse_alsi": "#5b3a8a", "gold_usd": "#a07617", "platinum_usd": "#55606b", "prime_rate": "#b0553a", "ppi_yoy": "#d08b2f", "bond_2030": "#2a7a86", "bond_2036": "#144552", "zar_eur": "#4a8a4a", "zar_gbp": "#7aa03c", "neer": "#6b4b2a", "brent_usd": "#3a3a3a"}, "groups": [{"title": "Inflation & policy rates (%)", "inds": ["cpi_yoy", "ppi_yoy", "repo_rate", "prime_rate"]}, {"title": "Government bond yields (%)", "inds": ["bond_2030", "bond_2036"]}, {"title": "Rand crosses (rand per unit)", "inds": ["zar_usd", "zar_eur", "zar_gbp"]}, {"title": "Precious metals (USD/oz)", "inds": ["gold_usd", "platinum_usd"]}, {"title": "JSE All Share (index points)", "inds": ["jse_alsi"]}, {"title": "Brent crude (USD/bbl)", "inds": ["brent_usd"]}, {"title": "Trade-weighted rand (NEER, index)", "inds": ["neer"]}], "pct": ["cpi_yoy", "repo_rate", "prime_rate", "ppi_yoy", "bond_2030", "bond_2036"], "rand": ["zar_usd", "zar_eur", "zar_gbp"]};
+const PCT = new Set(D.pct), RAND = new Set(D.rand);
+const fmtVal = (ind, v) => v == null ? '—'
+  : PCT.has(ind) ? v.toFixed(2) + '%'
+  : RAND.has(ind) ? 'R' + v.toFixed(2)
+  : ind === 'jse_alsi' ? Math.round(v).toLocaleString()
+  : ind === 'neer' ? v.toFixed(2)
+  : ind === 'brent_usd' ? '$' + v.toFixed(2)
+  : '$' + Math.round(v).toLocaleString();
+
+let charts = [], mode = 'grouped', sel = null, days = 0;
+
+function fromIdx() {
+  if (!days || D.dates.length < 2) return 0;
+  const last = new Date(D.dates[D.dates.length - 1]);
+  const cut = new Date(last); cut.setDate(cut.getDate() - days);
+  const iso = cut.toISOString().slice(0, 10);
+  const i = D.dates.findIndex(d => d >= iso);
+  return i < 0 ? 0 : i;
+}
+
+function dataset(ind, from, rebased, fill) {
+  const pts = D.series[ind].slice(from);
+  let data;
+  if (rebased) {
+    const base = pts.find(p => p.v != null);
+    data = pts.map(p => (p.v != null && base) ? p.v / base.v * 100 : null);
+  } else data = pts.map(p => p.v);
+  return { label: D.labels[ind], _ind: ind, _raw: pts, _idx: rebased, data,
+    borderColor: D.colors[ind],
+    backgroundColor: fill ? D.colors[ind] + '22' : D.colors[ind],
+    fill: !!fill, spanGaps: true,
+    pointRadius: pts.length > 40 ? 0 : 3, borderWidth: 1.7, tension: .25 };
+}
+
+const tooltip = { callbacks: {
+  label: (c) => {
+    const p = c.dataset._raw[c.dataIndex] || {};
+    let line = c.dataset.label + ': ' + fmtVal(c.dataset._ind, p.v);
+    if (c.dataset._idx && c.parsed.y != null) line += '  (index ' + c.parsed.y.toFixed(1) + ')';
+    return line;
+  },
+  afterLabel: (c) => {
+    const p = c.dataset._raw[c.dataIndex] || {};
+    return (p.s ? 'source: ' + p.s : '') + (p.e ? '  ≈ approx' : '');
+  } } };
+
+function baseOpts(showLegend, yFmt, yTitle) {
+  return { responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'nearest', intersect: false },
+    plugins: { legend: { display: showLegend,
+        labels: { font: { family: 'Georgia', size: 11 }, boxWidth: 9 } },
+      tooltip },
+    scales: { x: { ticks: { maxTicksLimit: 7, font: { size: 10 } } },
+      y: { ticks: { font: { size: 10 }, callback: yFmt },
+            title: { display: !!yTitle, text: yTitle || '', font: { size: 10 } } } } };
+}
+
+function draw() {
+  const zone = document.getElementById('chartzone');
+  if (!zone) return;
+  if (!window.Chart) {
+    const n = document.getElementById('offline-note'); if (n) n.style.display = 'block'; return;
+  }
+  charts.forEach(c => c.destroy()); charts = []; zone.innerHTML = '';
+  const from = fromIdx(), labels = D.dates.slice(from);
+
+  if (mode === 'grouped') {
+    const grid = document.createElement('div'); grid.className = 'panelgrid'; zone.appendChild(grid);
+    for (const g of D.groups) {
+      const panel = document.createElement('div'); panel.className = 'panel';
+      panel.innerHTML = '<h4>' + g.title + '</h4><div class="cwrap"><canvas></canvas></div>';
+      grid.appendChild(panel);
+      const single = g.inds.length === 1;
+      charts.push(new Chart(panel.querySelector('canvas'), { type: 'line',
+        data: { labels, datasets: g.inds.map(i => dataset(i, from, false, single)) },
+        options: baseOpts(!single, v => fmtVal(g.inds[0], v)) }));
+    }
+  } else if (mode === 'single') {
+    const box = document.createElement('div'); box.className = 'bigchart';
+    box.innerHTML = '<div class="cwrap"><canvas></canvas></div>'; zone.appendChild(box);
+    charts.push(new Chart(box.querySelector('canvas'), { type: 'line',
+      data: { labels, datasets: [dataset(sel, from, false, true)] },
+      options: baseOpts(false, v => fmtVal(sel, v)) }));
+  } else { // rebased
+    const box = document.createElement('div'); box.className = 'bigchart';
+    box.innerHTML = '<div class="cwrap"><canvas></canvas></div>'; zone.appendChild(box);
+    charts.push(new Chart(box.querySelector('canvas'), { type: 'line',
+      data: { labels, datasets: Object.keys(D.series).map(i => dataset(i, from, true, false)) },
+      options: baseOpts(true, v => v, 'all series rebased: first value in window = 100 (compares moves, not levels)') }));
+  }
+}
+
+function setMode(m, ind) {
+  mode = m; sel = ind || sel;
+  document.querySelectorAll('.mode-chip').forEach(c =>
+    c.classList.toggle('on', c.dataset.mode === m));
+  document.querySelectorAll('.ind-chip').forEach(c =>
+    c.classList.toggle('on', m === 'single' && c.dataset.ind === sel));
+  document.querySelectorAll('.ticket').forEach(t =>
+    t.classList.toggle('active', m === 'single' && t.dataset.ind === sel));
+  draw();
+}
+document.querySelectorAll('.mode-chip').forEach(c => c.onclick = () => setMode(c.dataset.mode));
+document.querySelectorAll('.ind-chip').forEach(c => c.onclick = () => setMode('single', c.dataset.ind));
+const gotoChart = () => { const z = document.getElementById('chartzone');
+  if (z) z.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+document.querySelectorAll('.ticket').forEach(t => t.onclick = () => { setMode('single', t.dataset.ind); gotoChart(); });
+document.querySelectorAll('.ext-row').forEach(t => t.onclick = () => { setMode('single', t.dataset.ind); gotoChart(); });
+document.querySelectorAll('#rangebar .chip').forEach(b => b.onclick = () => {
+  days = +b.dataset.days;
+  document.querySelectorAll('#rangebar .chip').forEach(x => x.classList.toggle('on', x === b));
+  draw();
+});
+
+// ledger filtering (filter chips + key stamps)
+function filterLedger(f) {
+  document.querySelectorAll('.f-chip').forEach(c => c.classList.toggle('on', c.dataset.f === f));
+  let shown = 0;
+  document.querySelectorAll('.ledger-row').forEach(r => {
+    const on = f === 'all' || r.dataset.verdict === f;
+    r.classList.toggle('hidden', !on); if (on) shown++;
+  });
+  const n = document.getElementById('nofilter');
+  if (n) n.style.display = shown ? 'none' : 'block';
+}
+document.querySelectorAll('.f-chip').forEach(c => c.onclick = () => filterLedger(c.dataset.f));
+document.querySelectorAll('.keybox .stamp').forEach(s => {
+  s.style.cursor = 'pointer'; s.title = 'Click to filter the ledger';
+  s.onclick = () => filterLedger(s.classList.contains('hit') ? 'hit'
+    : s.classList.contains('partial') ? 'partial'
+    : s.classList.contains('miss') ? 'miss' : 'pending');
+});
+if (document.querySelector('.f-chip')) filterLedger('all');
+draw();
+</script></body></html>
